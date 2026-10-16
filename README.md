@@ -35,6 +35,8 @@ Die Anmeldung setzt die vom Sites-Hosting geprüften Identitätsheader voraus. F
 
 ## Synchronisierung
 
-Dies ist eine Übernahme des Quellstands. Änderungen auf GitHub werden nicht automatisch in die laufende Site übernommen; Änderungen an der Site werden nicht automatisch nach GitHub übertragen.
+Eine mit der bestehenden Sites-Anwendung verknüpfte ChatGPT-Cloud-Aufgabe prüft den Branch `main` stündlich (Europe/Vienna). Neue Änderungen werden nach erfolgreicher Typprüfung, automatisierten Tests und Produktionsbuild in die bestehende Anwendung übernommen. Bei Fehlern oder Konflikten bleibt die bisherige Version online. Projekt-ID, Zugriffsfreigaben und produktive DB-/R2-Bindungen bleiben erhalten.
+
+Die Übernahme erfolgt **von GitHub zur Site**. Änderungen, die direkt an der Site vorgenommen werden, werden nicht automatisch nach GitHub zurückgeschrieben. Der bisherige Anwendungslink bleibt bestehen. Der erste unbeaufsichtigte Lauf steht nach der Einrichtung noch aus.
 
 Die ursprüngliche Dokumentation mit historischen Einschränkungen steht in [docs/README-ursprung.md](docs/README-ursprung.md). Weitere Implementierungsnotizen: [IMPLEMENTIERUNG.md](IMPLEMENTIERUNG.md).
