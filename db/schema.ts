@@ -1,0 +1,38 @@
+import {sqliteTable,text,integer,real,index,check} from 'drizzle-orm/sqlite-core';
+import {sql} from 'drizzle-orm';
+const base=()=>({id:text('id').primaryKey(),data:text('data').notNull(),version:integer('version').notNull().default(1)});
+export const roles=sqliteTable('roles',{id:text('id').primaryKey(),name:text('name').notNull()});
+export const permissions=sqliteTable('permissions',{id:text('id').primaryKey(),name:text('name').notNull()});
+export const rolePermissions=sqliteTable('role_permissions',{id:text('id').primaryKey(),roleId:text('role_id').references(()=>roles.id),permissionId:text('permission_id').references(()=>permissions.id)});
+export const employees=sqliteTable('employees',{...base(),name:text('name').notNull(),group:text('employee_group'),weeklyHours:real('weekly_hours')});
+export const customers=sqliteTable('customers',{...base(),name:text('name').notNull()});
+export const customerContacts=sqliteTable('customer_contacts',{id:text('id').primaryKey(),customerId:text('customer_id').references(()=>customers.id),name:text('name'),phone:text('phone'),email:text('email')});
+export const customerLocations=sqliteTable('customer_locations',{id:text('id').primaryKey(),customerId:text('customer_id').references(()=>customers.id),address:text('address')});
+export const orders=sqliteTable('orders',{...base(),number:text('number').notNull().unique(),title:text('title').notNull(),customerId:text('customer_id').notNull().references(()=>customers.id),responsibleId:text('responsible_id').references(()=>employees.id)});
+export const orderAssignments=sqliteTable('order_assignments',{...base(),orderId:text('order_id').notNull().references(()=>orders.id),employeeId:text('employee_id').notNull().references(()=>employees.id),date:text('date').notNull(),start:text('start').notNull(),end:text('end').notNull()},t=>[index('assignment_employee_date').on(t.employeeId,t.date)]);
+export const orderTasks=sqliteTable('order_tasks',{...base(),orderId:text('order_id').notNull().references(()=>orders.id),employeeId:text('employee_id').references(()=>employees.id)});
+export const suppliers=sqliteTable('suppliers',{id:text('id').primaryKey(),name:text('name').notNull()});
+export const materials=sqliteTable('materials',{...base(),name:text('name').notNull(),orderId:text('order_id').references(()=>orders.id)});
+export const orderMaterials=sqliteTable('order_materials',{id:text('id').primaryKey(),orderId:text('order_id').references(()=>orders.id),materialId:text('material_id').references(()=>materials.id),quantity:real('quantity'),reserved:real('reserved')});
+export const timeEntries=sqliteTable('time_entries',{...base(),orderId:text('order_id').notNull().references(()=>orders.id),employeeId:text('employee_id').notNull().references(()=>employees.id),date:text('date').notNull()},t=>[index('time_employee_date').on(t.employeeId,t.date)]);
+export const absences=sqliteTable('absences',{...base(),employeeId:text('employee_id').notNull().references(()=>employees.id),date:text('date').notNull(),end:text('end').notNull()});
+export const documents=sqliteTable('documents',{...base(),orderId:text('order_id').notNull().references(()=>orders.id)});
+export const timers=sqliteTable('timers',{...base(),employeeId:text('employee_id').notNull().references(()=>employees.id)});
+export const vehicles=sqliteTable('vehicles',{id:text('id').primaryKey(),name:text('name').notNull(),registration:text('registration')});
+export const equipment=sqliteTable('equipment',{id:text('id').primaryKey(),name:text('name').notNull(),type:text('type')});
+export const users=sqliteTable('users',{id:text('id').primaryKey(),email:text('email').notNull().unique(),role:text('role').notNull(),overrides:text('overrides').notNull().default('{}'),version:integer('version').notNull().default(1),employeeId:text('employee_id').references(()=>employees.id)});
+export const audit=sqliteTable('audit',{id:text('id').primaryKey(),actor:text('actor').notNull(),action:text('action').notNull(),before:text('before'),after:text('after'),createdAt:text('created_at').notNull()});
+
+// Erweiterung 2026-09: operative Abläufe; bestehende Migration bleibt unverändert.
+export const missions=sqliteTable('missions',{...base(),orderId:text('order_id').notNull().references(()=>orders.id)});
+export const resources=sqliteTable('resources',{...base(),name:text('name').notNull()});
+export const resourceBlocks=sqliteTable('resource_blocks',{...base(),resourceId:text('resource_id').notNull().references(()=>resources.id)});
+export const inventory=sqliteTable('inventory',{...base(),name:text('name').notNull()});
+export const stockMovements=sqliteTable('stock_movements',{...base(),inventoryId:text('inventory_id').notNull().references(()=>inventory.id)});
+export const dayReports=sqliteTable('day_reports',{...base(),employeeId:text('employee_id').notNull().references(()=>employees.id),date:text('date').notNull()});
+export const feedback=sqliteTable('feedback',{...base(),assignmentId:text('assignment_id').notNull().references(()=>orderAssignments.id),employeeId:text('employee_id').notNull().references(()=>employees.id)});
+export const templates=sqliteTable('order_templates',{...base(),name:text('name').notNull()});
+export const maintenancePlans=sqliteTable('maintenance_plans',{...base(),customerId:text('customer_id').notNull().references(()=>customers.id)});
+export const settings=sqliteTable('app_settings',{...base()});
+export const revision=sqliteTable('app_revision',{id:text('id').primaryKey(),revision:integer('revision').notNull().default(0)});
+export const commands=sqliteTable('app_commands',{id:text('id').primaryKey(),fingerprint:text('fingerprint').notNull(),guard:integer('guard').notNull(),result:text('result').notNull(),created:text('created').notNull()},t=>[check('command_revision_guard',sql`${t.guard} = 1`)]);

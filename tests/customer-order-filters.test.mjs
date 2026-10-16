@@ -1,0 +1,18 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdirSync} from 'node:fs';
+mkdirSync('work',{recursive:true});
+await build({entryPoints:['lib/customer-order-filters.ts'],bundle:true,platform:'node',format:'esm',outfile:'work/customer-filters.mjs'});
+const {customerOrderSelection:select,accountingStatus}=await import('../work/customer-filters.mjs');
+const customers=[{id:'a',name:'Binderholz'},{id:'b',name:'Hotel'},{id:'c',name:'Ohne Aufträge'},{id:'d',name:'Nur bezahlt'}];
+const orders=[{id:'1',customer:'a',number:'34955',title:'Wurzelreduzieren',status:'Produktion',accountingStatus:'In Arbeit',type:'Produktion'},{id:'2',customer:'a',status:'Fertig',accountingStatus:'Arbeit fertig',type:'Produktion'},{id:'3',customer:'b',status:'Abgerechnet',accountingStatus:'Rechnung gedruckt',type:'Service'},{id:'4',customer:'d',status:'Abgerechnet',accountingStatus:'Rechnung bezahlt',type:'Service'},{id:'5',customer:'c',status:'Storniert',accountingStatus:'In Arbeit',type:'Produktion'}];
+const options={statuses:['In Arbeit','Arbeit fertig','Rechnung gedruckt'],mode:'with'};
+test('offene Aufträge: bezahlt und storniert sind keine Treffer',()=>{const r=select(customers,orders,options);assert.deepEqual(r.customers.map(c=>c.id),['a','b']);assert.equal(r.counts.get('a'),2);assert.equal(r.orders.length,3)});
+test('Statuskombination verwendet ODER',()=>{assert.deepEqual(select(customers,orders,{...options,statuses:['Arbeit fertig','Rechnung bezahlt']}).customers.map(c=>c.id),['a','d'])});
+test('Ohne passende Aufträge bildet Gegenmenge und zeigt übrige Aufträge',()=>{const r=select(customers,orders,{...options,mode:'without'});assert.deepEqual(r.customers.map(c=>c.id),['d','c']);assert.deepEqual(r.orders.map(o=>o.id),['4','5'])});
+test('Alle Kunden lässt Nulltreffer sichtbar',()=>{const r=select(customers,orders,{...options,mode:'all'});assert.equal(r.customers.length,4);assert.equal(r.orders.length,3)});
+test('kein ausgewählter Status erzeugt keine Treffer',()=>{assert.equal(select(customers,orders,{...options,statuses:[]}).customers.length,0);assert.equal(select(customers,orders,{...options,statuses:[],mode:'without'}).customers.length,4)});
+test('Suche in Auftragsthema und Kundennamen',()=>{assert.equal(select(customers,orders,{...options,query:'WURZEL'}).customers[0].id,'a');assert.equal(select(customers,orders,{...options,query:'Hotel'}).orders.length,1)});
+test('Auftragsart und Phase schränken Treffer ein',()=>{assert.deepEqual(select(customers,orders,{...options,type:'Service'}).customers.map(c=>c.id),['b']);assert.equal(select(customers,orders,{...options,workflow:'Produktion'}).orders.length,1)});
+test('Bestandsstatus wird korrekt zugeordnet',()=>{assert.equal(accountingStatus({status:'Fertig'}),'Arbeit fertig');assert.equal(accountingStatus({status:'Abgerechnet'}),'Rechnung gedruckt')});

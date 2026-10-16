@@ -1,0 +1,14 @@
+const formatters=new Map<string,Intl.DateTimeFormat>();
+const instants=new Map<string,number>();
+export function localParts(value:number|string|Date,zone='Europe/Vienna'){let formatter=formatters.get(zone);if(!formatter){formatter=new Intl.DateTimeFormat('sv-SE',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});if(formatters.size>=16)formatters.clear();formatters.set(zone,formatter)}const p=Object.fromEntries(formatter.formatToParts(new Date(value)).map(p=>[p.type,p.value]));return {date:`${p.year}-${p.month}-${p.day}`,time:`${p.hour}:${p.minute}`,second:p.second}}
+export function addDays(day:string,n:number){const d=new Date(day+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+export function toInstant(day:string,time:string,zone='Europe/Vienna',occurrence='earlier'){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))throw new Error('Bitte gültiges Datum und Uhrzeit eingeben.');
+ const key=[zone,day,time,occurrence].join('|'),cached=instants.get(key);if(cached!=null)return cached;
+ const guess=Date.parse(day+'T'+time+':00Z');if(!Number.isFinite(guess))throw new Error('Ungültiges Datum.');const offsets=new Set<number>();for(const h of [-36,0,36]){const t=guess+h*3600000,p=localParts(t,zone);offsets.add(Date.parse(p.date+'T'+p.time+':'+p.second+'Z')-t)}
+ const options=[...offsets].map(o=>guess-o).filter(t=>{const p=localParts(t,zone);return p.date===day&&p.time===time}).sort();if(!options.length)throw new Error('Diese Uhrzeit existiert wegen der Zeitumstellung nicht.');const result=occurrence==='later'?options[options.length-1]:options[0];if(instants.size>=2048)instants.clear();instants.set(key,result);return result;
+}
+export function interval(x:any,zone='Europe/Vienna'):[number,number]{const a=x.startAt?Date.parse(x.startAt):toInstant(x.date,x.start,zone,x.occurrence);const b=x.endAt?Date.parse(x.endAt):toInstant(x.endDate||x.date,x.end,zone,x.endOccurrence||x.occurrence);if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a)throw new Error('Das Ende muss nach dem Beginn liegen. Bei Nachteinsätzen das Enddatum ergänzen.');return [a,b]}
+export const overlap=(a:[number,number],b:[number,number])=>a[0]<b[1]&&b[0]<a[1];
+export function splitInterval(a:number,b:number,zone:string){const result:any[]=[];while(a<b){const p=localParts(a,zone),midnight=toInstant(addDays(p.date,1),'00:00',zone),end=Math.min(midnight,b),q=localParts(end,zone);result.push({date:p.date,start:p.time,end:q.time,endDate:q.date,startAt:new Date(a).toISOString(),endAt:new Date(end).toISOString(),hours:(end-a)/3600000});a=end;if(result.length>32)throw new Error('Zeitraum ist zu lang.')}return result}
+export function weekDates(offset=0,zone='Europe/Vienna'){const now=localParts(Date.now(),zone).date,d=new Date(now+'T12:00:00Z'),n=(d.getUTCDay()+6)%7;return Array.from({length:5},(_,i)=>addDays(now,offset*7-n+i))}
